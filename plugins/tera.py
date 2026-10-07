@@ -125,7 +125,7 @@ def get_api_file_info(share_url: str) -> dict:
     resp.raise_for_status()
     data = resp.json()
     if not data.get("success"):
-        raise ValueError(data.get("message") or data.get("error") or "API download failed")
+        raise ValueError(f"API response: {data}")
 
     download_options = get_api_download_options(data)
     download_link = get_api_download_url(data)

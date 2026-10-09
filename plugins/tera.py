@@ -119,31 +119,51 @@ def get_api_download_options(api_data: dict) -> dict:
     return options
 
 
+
 def get_api_file_info(share_url: str) -> dict:
-    api_url = f"{TERABOX.API_DOWNLOAD_ENDPOINT}?url={quote_plus(share_url)}"
-    resp = requests.get(api_url, timeout=REQUEST_TIMEOUT)
+    api_url = "https://terabox-worker.robinkumarshakya103.workers.dev/api"
+
+    resp = requests.get(
+        api_url,
+        params={"url": share_url},
+        timeout=REQUEST_TIMEOUT
+    )
     resp.raise_for_status()
     data = resp.json()
+
     if not data.get("success"):
-        raise ValueError(f"API response: {data}")
+        raise ValueError(
+            data.get("error") or
+            data.get("message") or
+            "API download failed"
+        )
 
-    download_options = get_api_download_options(data)
-    download_link = get_api_download_url(data)
-    if not download_options and not download_link:
-        raise ValueError("API response did not include a downloadable link")
+    files = data.get("files") or []
+    if not files:
+        raise ValueError("API returned no files")
 
-    size_bytes = int(data.get("size") or 0)
+    file_data = files[0]
+    download_link = (
+        file_data.get("download_url")
+        or file_data.get("original_download_url")
+        or file_data.get("streaming_url")
+    )
+
+    if not download_link:
+        raise ValueError("API returned no download URL")
+
+    size_bytes = 0
     return {
-        "name": clean_filename(data.get("filename") or "download"),
+        "name": clean_filename(file_data.get("file_name") or "download"),
         "download_link": download_link,
-        "download_options": download_options,
-        "best_quality": data.get("best_quality"),
+        "download_options": {},
         "size_bytes": size_bytes,
-        "size_str": get_size(size_bytes),
-        "resolved_url": data.get("resolved_url") or share_url,
+        "size_str": file_data.get("size") or get_size(size_bytes),
+        "resolved_url": share_url,
         "original_url": share_url,
         "source": "api",
     }
+
 
 def get_stream_link_info(stream_url: str) -> dict:
     filename = clean_filename(urlparse(stream_url).path.rsplit("/", 1)[-1] or "download")
